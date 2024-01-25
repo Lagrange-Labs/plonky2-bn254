@@ -121,8 +121,13 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
     }
 
     pub fn is_zero(&self, builder: &mut CircuitBuilder<F, D>) -> BoolTarget {
-        let zero = Self::zero(builder);
-        self.is_equal(builder, &zero)
+        let zero = builder.zero();
+        let mut t = builder._true();
+        for l in self.target.value.limbs.iter() {
+            let eq = builder.is_equal(zero, l.0);
+            t = builder.and(eq, t);
+        }
+        t
     }
 
     pub fn constant(builder: &mut CircuitBuilder<F, D>, c: Fq) -> Self {

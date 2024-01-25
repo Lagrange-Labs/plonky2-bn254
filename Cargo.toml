@@ -29,7 +29,7 @@ plonky2 = { git = "https://github.com/nikkolasg/plonky2" }
 
 [patch."https://github.com/0xPolygonZero/plonky2-ecdsa"]
 plonky2_ecdsa = { git = "https://github.com/nikkolasg/plonky2-ecdsa" }
-#plonky2_ecdsa = { path = "../plonky2-ecdsa" }
+# plonky2_ecdsa = { path = "../plonky2-ecdsa" }
 
 [dev-dependencies]
 env_logger = "0.11.0"

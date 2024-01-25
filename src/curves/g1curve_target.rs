@@ -1,4 +1,4 @@
-use ark_bn254::G1Affine;
+use ark_bn254::{Fq, G1Affine};
 use ark_std::UniformRand;
 use itertools::Itertools;
 use plonky2::{
@@ -43,6 +43,13 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
             x: x_target,
             y: y_target,
         }
+    }
+
+    pub fn zero(builder: &mut CircuitBuilder<F, D>) -> Self {
+        use ark_ff::Field;
+        let x = FqTarget::constant(builder, Fq::ZERO);
+        let y = FqTarget::constant(builder, Fq::ZERO);
+        G1Target { x, y }
     }
 
     pub fn connect(builder: &mut CircuitBuilder<F, D>, lhs: &Self, rhs: &Self) {
@@ -93,7 +100,40 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
         let prod = s.mul(builder, &x_diff);
         let y3 = prod.sub(builder, &y1);
 
-        G1Target { x: x3, y: y3 }
+        let x1zero = x1.is_zero(builder);
+        let x2zero = x2.is_zero(builder);
+        let both_zero = builder.and(x1zero, x2zero);
+        let one_zero = builder.or(x1zero, x2zero);
+        let x1full = builder.not(x1zero);
+        let x2full = builder.not(x2zero);
+        let x1zerox2full = builder.and(x1zero, x2full);
+        let x1fullx2zero = builder.and(x1full, x2zero);
+        let no_zero = builder.and(x1full, x2full);
+        let zero_fq = FqTarget::empty(builder);
+
+        // x1 == 0, x2 == 0
+        // put acc alternative on x3
+        //let maybe_zero = FqTarget::select(builder, &zero_fq, &x3, &both_zero);
+        // x1 == 0, x2 != 0
+        let maybe_x2_or_x1 = FqTarget::select(builder, &x2, &x2, &x1zero);
+        // x1 != 0, x2 == 0
+        let maybe_x1_or_x2 = FqTarget::select(builder, &x1, &x2, &x2zero);
+        // IF (x1 XOR x2) != 0 -> (x1 == 0 & x2 != 0)* x2 OR (x1 != 0 & x2 == 0) * x1
+        let and_fq = FqTarget::select(builder, &maybe_x2_or_x1, &maybe_x1_or_x2, &x1zerox2full);
+        // IF (x1 != 0, x2 != 0) => x3 OR  ^
+        let maybe_x3 = FqTarget::select(builder, &x3, &and_fq, &no_zero);
+
+        let maybe_y2_or_y1 = FqTarget::select(builder, &y2, &y2, &x1zero);
+        // x1 != 0, x2 == 0
+        let maybe_y1_or_y2 = FqTarget::select(builder, &y1, &y2, &x2zero);
+        let and_fq = FqTarget::select(builder, &maybe_y2_or_y1, &maybe_y1_or_y2, &x1zerox2full);
+        // x1 != 0, x2 != 0
+        let maybe_y3 = FqTarget::select(builder, &y3, &and_fq, &no_zero);
+
+        G1Target {
+            x: maybe_x3,
+            y: maybe_y3,
+        }
     }
 
     pub fn conditional_add(
@@ -166,6 +206,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use ark_bn254::{Fr, G1Affine};
+    use ark_ec::AffineRepr;
     use ark_std::UniformRand;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
@@ -189,6 +230,49 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
+    #[test]
+    fn test_g1_add_zero_right() {
+        let rng = &mut rand::thread_rng();
+        let a = G1Affine::rand(rng);
+        let zero = G1Affine::zero();
+        let c_expected: G1Affine = a;
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let a_t = G1Target::constant(&mut builder, a);
+        let b_t = G1Target::zero(&mut builder);
+        let c_t = a_t.add(&mut builder, &b_t);
+        let c_expected_t = G1Target::constant(&mut builder, c_expected);
+
+        G1Target::connect(&mut builder, &c_expected_t, &c_t);
+
+        let mut pw = PartialWitness::new();
+        //b_t.set_witness(&mut pw, &zero);
+        let data = builder.build::<C>();
+        let _ = data.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_g1_add_zero_left() {
+        let rng = &mut rand::thread_rng();
+        let a = G1Affine::zero();
+        let b = G1Affine::rand(rng);
+        let c_expected: G1Affine = b;
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let a_t = G1Target::constant(&mut builder, a);
+        let b_t = G1Target::constant(&mut builder,b);
+        let c_t = a_t.add(&mut builder, &b_t);
+        let c_expected_t = G1Target::constant(&mut builder, c_expected);
+
+        G1Target::connect(&mut builder, &c_expected_t, &c_t);
+
+        let mut pw = PartialWitness::new();
+        //b_t.set_witness(&mut pw, &zero);
+        let data = builder.build::<C>();
+        let _ = data.prove(pw).unwrap();
+    }
     #[test]
     fn test_g1_add() {
         let rng = &mut rand::thread_rng();
