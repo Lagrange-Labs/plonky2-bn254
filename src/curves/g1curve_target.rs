@@ -83,6 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
         G1Target { x: x3, y: y3 }
     }
 
+    /// It assumes at least one of the two points is non zero.
     pub fn add(&self, builder: &mut CircuitBuilder<F, D>, rhs: &Self) -> Self {
         let x1 = self.x.clone();
         let y1 = self.y.clone();
@@ -102,32 +103,19 @@ impl<F: RichField + Extendable<D>, const D: usize> G1Target<F, D> {
 
         let x1zero = x1.is_zero(builder);
         let x2zero = x2.is_zero(builder);
-        let both_zero = builder.and(x1zero, x2zero);
-        let one_zero = builder.or(x1zero, x2zero);
         let x1full = builder.not(x1zero);
         let x2full = builder.not(x2zero);
         let x1zerox2full = builder.and(x1zero, x2full);
-        let x1fullx2zero = builder.and(x1full, x2zero);
         let no_zero = builder.and(x1full, x2full);
-        let zero_fq = FqTarget::empty(builder);
 
-        // x1 == 0, x2 == 0
-        // put acc alternative on x3
-        //let maybe_zero = FqTarget::select(builder, &zero_fq, &x3, &both_zero);
-        // x1 == 0, x2 != 0
-        let maybe_x2_or_x1 = FqTarget::select(builder, &x2, &x2, &x1zero);
-        // x1 != 0, x2 == 0
-        let maybe_x1_or_x2 = FqTarget::select(builder, &x1, &x2, &x2zero);
-        // IF (x1 XOR x2) != 0 -> (x1 == 0 & x2 != 0)* x2 OR (x1 != 0 & x2 == 0) * x1
-        let and_fq = FqTarget::select(builder, &maybe_x2_or_x1, &maybe_x1_or_x2, &x1zerox2full);
+        // IF (x1 == 0 && x2 != 0) -> x2 OR x1
+        // we assume one of them is non zero at least so either it's x2 or it's x1
+        let and_fq = FqTarget::select(builder, &x2, &x1, &x1zerox2full);
         // IF (x1 != 0, x2 != 0) => x3 OR  ^
+        // if none of them are zero, then it's definitely x3
         let maybe_x3 = FqTarget::select(builder, &x3, &and_fq, &no_zero);
 
-        let maybe_y2_or_y1 = FqTarget::select(builder, &y2, &y2, &x1zero);
-        // x1 != 0, x2 == 0
-        let maybe_y1_or_y2 = FqTarget::select(builder, &y1, &y2, &x2zero);
-        let and_fq = FqTarget::select(builder, &maybe_y2_or_y1, &maybe_y1_or_y2, &x1zerox2full);
-        // x1 != 0, x2 != 0
+        let and_fq = FqTarget::select(builder, &y2, &y1, &x1zerox2full);
         let maybe_y3 = FqTarget::select(builder, &y3, &and_fq, &no_zero);
 
         G1Target {
@@ -262,7 +250,7 @@ mod tests {
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let a_t = G1Target::constant(&mut builder, a);
-        let b_t = G1Target::constant(&mut builder,b);
+        let b_t = G1Target::constant(&mut builder, b);
         let c_t = a_t.add(&mut builder, &b_t);
         let c_expected_t = G1Target::constant(&mut builder, c_expected);
 
