@@ -13,7 +13,8 @@ ark-std = "0.4.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
 rand = "0.8.5"
-plonky2_ecdsa = { git = "https://github.com/0xPolygonZero/plonky2-ecdsa", features = ["parallel"] }
+#plonky2_ecdsa = { git = "https://github.com/0xPolygonZero/plonky2-ecdsa", features = ["parallel"] }
+plonky2_ecdsa = { git = "https://github.com/nikkolasg/plonky2-ecdsa", features = ["parallel"] }
 plonky2_crypto = { git = "https://github.com/nikkolasg/plonky2-crypto" , branch = "feat/serialization" }
 plonky2 = { git="https://github.com/nikkolasg/plonky2" }
 num = "0.4.0"
@@ -27,8 +28,6 @@ log = "0.4.20"
 [patch.crates-io]
 plonky2 = { git = "https://github.com/nikkolasg/plonky2" }
 
-[patch."https://github.com/0xPolygonZero/plonky2-ecdsa"]
-plonky2_ecdsa = { git = "https://github.com/nikkolasg/plonky2-ecdsa" }
 # plonky2_ecdsa = { path = "../plonky2-ecdsa" }
 
 [dev-dependencies]
