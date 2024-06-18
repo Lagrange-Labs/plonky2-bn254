@@ -16,7 +16,7 @@ rand = "0.8.5"
 #plonky2_ecdsa = { git = "https://github.com/0xPolygonZero/plonky2-ecdsa", features = ["parallel"] }
 plonky2_ecdsa = { git = "https://github.com/Lagrange-Labs/plonky2-ecdsa", features = [
     "parallel",
-] }
+], rev = "8adef7d" }
 plonky2_crypto = { git = "https://github.com/Lagrange-Labs/plonky2-crypto", branch = "feat/serialization" }
 plonky2 = "0.1.4"
 num = "0.4.0"
