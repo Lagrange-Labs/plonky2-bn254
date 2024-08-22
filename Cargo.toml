@@ -28,7 +28,6 @@ log = "0.4.20"
 
 [patch.crates-io]
 plonky2 = { git = "https://github.com/Lagrange-Labs/plonky2", branch = "upstream" }
-plonky2_field = { git = "https://github.com/Lagrange-Labs/plonky2", branch = "upstream" }
 
 ##[patch."https://github.com/nikkolasg/plonky2-ecdsa"]
 ##plonky2_ecdsa = { path = "../plonky2-ecdsa" }
