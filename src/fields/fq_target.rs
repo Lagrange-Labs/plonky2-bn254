@@ -107,12 +107,24 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
     pub fn is_equal(&self, builder: &mut CircuitBuilder<F, D>, rhs: &Self) -> BoolTarget {
         let a_limbs = self.target.value.limbs.iter().map(|x| x.0).collect_vec();
         let b_limbs = rhs.target.value.limbs.iter().map(|x| x.0).collect_vec();
-        assert_eq!(a_limbs.len(), b_limbs.len());
 
-        let terms = a_limbs
+        if a_limbs.len() == b_limbs.len() {
+            self.compare_same_length(builder, &a_limbs, &b_limbs)
+        } else {
+            self.compare_different_length(builder, &a_limbs, &b_limbs)
+        }
+    }
+
+    fn compare_same_length(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        lhs: &Vec<Target>,
+        rhs: &Vec<Target>,
+    ) -> BoolTarget {
+        let terms = lhs
             .iter()
-            .zip(b_limbs)
-            .map(|(&a, b)| builder.is_equal(a, b).target)
+            .zip(rhs)
+            .map(|(&a, b)| builder.is_equal(a, *b).target)
             .collect_vec();
         let is_equal = builder.mul_many(terms);
 
@@ -120,14 +132,39 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
         BoolTarget::new_unsafe(is_equal)
     }
 
-    pub fn is_zero(&self, builder: &mut CircuitBuilder<F, D>) -> BoolTarget {
-        let zero = builder.zero();
-        let mut t = builder._true();
-        for l in self.target.value.limbs.iter() {
-            let eq = builder.is_equal(zero, l.0);
-            t = builder.and(eq, t);
+    fn compare_different_length(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        lhs: &Vec<Target>,
+        rhs: &Vec<Target>,
+    ) -> BoolTarget {
+        let (shorter, longer) = if lhs.len() < rhs.len() {
+            (&lhs, &rhs)
+        } else {
+            (&rhs, &lhs)
+        };
+        let mut terms = Vec::with_capacity(longer.len());
+
+        // Compare common limbs
+        for (a, b) in shorter.iter().zip(longer.iter()) {
+            terms.push(builder.is_equal(*a, *b).target);
         }
-        t
+
+        let zero = builder.zero();
+        // Check if the remaining limbs in the longer one are all zeros
+        for &limb in longer.iter().skip(shorter.len()) {
+            terms.push(builder.is_equal(limb, zero).target);
+        }
+
+        let is_equal = builder.mul_many(terms);
+
+        // is_equal is ensured to be 0 or 1, so we can safely convert it to bool.
+        BoolTarget::new_unsafe(is_equal)
+    }
+
+    pub fn is_zero(&self, builder: &mut CircuitBuilder<F, D>) -> BoolTarget {
+        let zero = Self::zero(builder);
+        self.is_equal(builder, &zero)
     }
 
     pub fn constant(builder: &mut CircuitBuilder<F, D>, c: Fq) -> Self {
