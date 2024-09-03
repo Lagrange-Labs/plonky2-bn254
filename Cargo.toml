@@ -13,7 +13,7 @@ ark-std = "0.4.0"
 num-bigint = "0.4.3"
 num-traits = "0.2"
 rand = "0.8.5"
-plonky2_ecdsa = { git = "https://github.com/Lagrange-Labs/plonky2-ecdsa", features = [
+plonky2_ecdsa = { git = "https://github.com/Lagrange-Labs/plonky2-ecdsa", rev = "5dd47af", features = [
     "parallel",
 ] }
 plonky2_crypto = { git = "https://github.com/Lagrange-Labs/plonky2-crypto" }
