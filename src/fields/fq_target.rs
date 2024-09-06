@@ -108,40 +108,10 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
         let a_limbs = self.target.value.limbs.iter().map(|x| x.0).collect_vec();
         let b_limbs = rhs.target.value.limbs.iter().map(|x| x.0).collect_vec();
 
-        if a_limbs.len() == b_limbs.len() {
-            self.compare_same_length(builder, &a_limbs, &b_limbs)
+        let (shorter, longer) = if a_limbs.len() <= b_limbs.len() {
+            (&a_limbs, &b_limbs)
         } else {
-            self.compare_different_length(builder, &a_limbs, &b_limbs)
-        }
-    }
-
-    fn compare_same_length(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        lhs: &Vec<Target>,
-        rhs: &Vec<Target>,
-    ) -> BoolTarget {
-        let terms = lhs
-            .iter()
-            .zip(rhs)
-            .map(|(&a, b)| builder.is_equal(a, *b).target)
-            .collect_vec();
-        let is_equal = builder.mul_many(terms);
-
-        // is_equal is ensured to be 0 or 1, so we can safely convert it to bool.
-        BoolTarget::new_unsafe(is_equal)
-    }
-
-    fn compare_different_length(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        lhs: &Vec<Target>,
-        rhs: &Vec<Target>,
-    ) -> BoolTarget {
-        let (shorter, longer) = if lhs.len() < rhs.len() {
-            (&lhs, &rhs)
-        } else {
-            (&rhs, &lhs)
+            (&b_limbs, &a_limbs)
         };
         let mut terms = Vec::with_capacity(longer.len());
 
