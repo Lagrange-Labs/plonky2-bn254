@@ -205,7 +205,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
         inv
     }
 
-    pub fn confugate(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn conjugate(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
         let mut coeffs = self.coeffs.clone();
         coeffs[1] = coeffs[1].neg(builder);
         coeffs[3] = coeffs[3].neg(builder);
