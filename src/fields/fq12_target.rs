@@ -8,7 +8,7 @@ use plonky2::{
     iop::{
         generator::{GeneratedValues, SimpleGenerator},
         target::{BoolTarget, Target},
-        witness::{PartitionWitness, WitnessWrite},
+        witness::{PartitionWitness, Witness, WitnessWrite},
     },
     plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoError},
@@ -18,9 +18,12 @@ use plonky2_ecdsa::gadgets::{
     nonnative::CircuitBuilderNonNative,
 };
 
-use crate::fields::{
-    fq_target::FqTarget,
-    native::{from_biguint_to_fq, MyFq12},
+use crate::{
+    fields::{
+        fq_target::FqTarget,
+        native::{from_biguint_to_fq, MyFq12},
+    },
+    utils::get_u256_biguint,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -188,6 +191,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
         }
     }
 
+    pub fn pow(&self, builder: &mut CircuitBuilder<F, D>, offset: &Self, exp_val: Target) -> Self {
+        let pow = Self::empty(builder);
+        builder.add_simple_generator(Fq12ExpGenerator::<F, D> {
+            x: self.clone(),
+            offset: offset.clone(),
+            exp_val,
+            output: pow.clone(),
+        });
+        pow
+    }
+
     pub fn div(&self, builder: &mut CircuitBuilder<F, D>, other: &Self) -> Self {
         let inv = other.inv(builder);
         self.mul(builder, &inv)
@@ -319,6 +333,69 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 }
 
+#[derive(Debug)]
+pub struct Fq12ExpGenerator<F: RichField + Extendable<D>, const D: usize> {
+    pub x: Fq12Target<F, D>,
+    pub offset: Fq12Target<F, D>,
+    pub exp_val: Target,
+    pub output: Fq12Target<F, D>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
+    for Fq12ExpGenerator<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        self.x
+            .coeffs
+            .iter()
+            .flat_map(|coeff| coeff.target.value.limbs.iter().map(|&l| l.0))
+            .collect_vec()
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x_coeffs: [Fq; 12] = self
+            .x
+            .clone()
+            .coeffs
+            .map(|x| get_u256_biguint(witness, &x.to_vec()).into());
+        let x: Fq12 = MyFq12 { coeffs: x_coeffs }.into();
+        let offset_coeffs = self
+            .offset
+            .clone()
+            .coeffs
+            .map(|x| get_u256_biguint(witness, &x.to_vec()).into());
+        let offset: Fq12 = MyFq12 {
+            coeffs: offset_coeffs,
+        }
+        .into();
+        let exp_val = witness.get_target(self.exp_val).to_canonical_u64();
+        let output = offset * x.pow(&[exp_val]);
+        self.output.set_witness(out_buffer, &output);
+    }
+
+    fn id(&self) -> String {
+        "Fq12ExpGenerator".to_string()
+    }
+
+    fn serialize(
+        &self,
+        _dst: &mut Vec<u8>,
+        _common_data: &CommonCircuitData<F, D>,
+    ) -> plonky2::util::serialization::IoResult<()> {
+        unimplemented!()
+    }
+
+    fn deserialize(
+        _src: &mut Buffer,
+        _common_data: &CommonCircuitData<F, D>,
+    ) -> plonky2::util::serialization::IoResult<Self>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
     pub fn to_vec(&self) -> Vec<Target> {
         self.coeffs.iter().flat_map(|c| c.to_vec()).collect()
@@ -357,13 +434,14 @@ mod tests {
     use ark_std::UniformRand;
     use num_bigint::BigUint;
     use plonky2::{
-        field::goldilocks_field::GoldilocksField,
-        iop::witness::PartialWitness,
+        field::{goldilocks_field::GoldilocksField, types::Field as Plonky2Field},
+        iop::{target::Target, witness::PartialWitness},
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
         },
     };
+    use rand::Rng;
 
     use super::{from_biguint_to_fq, Fq12Target};
 
@@ -432,6 +510,29 @@ mod tests {
         let inv_x_expected_t = Fq12Target::constant(&mut builder, inv_x_expected);
 
         Fq12Target::connect(&mut builder, &inv_x_t, &inv_x_expected_t);
+
+        let pw = PartialWitness::new();
+        let data = builder.build::<C>();
+        dbg!(data.common.degree_bits());
+        let _proof = data.prove(pw);
+    }
+
+    #[test]
+    fn test_fq12_pow_circuit() {
+        let rng = &mut rand::thread_rng();
+        let x: Fq12 = Fq12::rand(rng);
+        let exp: u64 = rng.gen();
+        let pow_expected = x.pow([exp]);
+
+        let config = CircuitConfig::standard_ecc_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let x_t = Fq12Target::constant(&mut builder, x);
+        let offset = Fq12Target::constant(&mut builder, Fq12::ONE);
+        let exp_val = builder.constant(F::from_canonical_u64(exp));
+        let pow_x_t = x_t.pow(&mut builder, &offset, exp_val);
+        let pow_x_expected_t = Fq12Target::constant(&mut builder, pow_expected);
+
+        Fq12Target::connect(&mut builder, &pow_x_t, &pow_x_expected_t);
 
         let pw = PartialWitness::new();
         let data = builder.build::<C>();
