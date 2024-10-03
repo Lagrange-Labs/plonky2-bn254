@@ -29,7 +29,7 @@ use crate::fields::{
 
 use super::native::get_naf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct FqTarget<F: RichField + Extendable<D>, const D: usize> {
     pub target: NonNativeTarget<Bn254Base>,
     _marker: PhantomData<F>,
