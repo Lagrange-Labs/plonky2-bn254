@@ -12,11 +12,11 @@ use plonky2::{
         witness::{PartitionWitness, Witness, WitnessWrite},
     },
     plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
-    util::serialization::{Buffer, IoError},
+    util::serialization::{Buffer, IoError, Read, Write},
 };
 use plonky2_ecdsa::gadgets::{
     biguint::{GeneratedValuesBigUint, WitnessBigUint},
-    nonnative::{CircuitBuilderNonNative, NonNativeTarget},
+    nonnative::CircuitBuilderNonNative,
 };
 
 use crate::fields::{fq_target::FqTarget, native::from_biguint_to_fq};
@@ -357,7 +357,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 }
 
 #[derive(Debug)]
-struct Fq2SqrtGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct Fq2SqrtGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Fq2Target<F, D>,
     sgn: BoolTarget,
     sqrt: Fq2Target<F, D>,
@@ -408,11 +408,25 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         "Fq2SqrtGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
-        unimplemented!()
+    fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        self.x.serialize(dst, common_data)?;
+        self.sqrt.serialize(dst, common_data)?;
+        dst.write_target_bool(self.sgn)
     }
-    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
-        unimplemented!()
+
+    fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let x = Fq2Target::deserialize(src, common_data)?;
+        let sqrt = Fq2Target::deserialize(src, common_data)?;
+        let sgn = src.read_target_bool()?;
+
+        Ok(Self { x, sqrt, sgn })
     }
 }
 
