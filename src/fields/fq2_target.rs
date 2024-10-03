@@ -356,7 +356,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Fq2SqrtGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Fq2Target<F, D>,
     sgn: BoolTarget,
