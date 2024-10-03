@@ -267,7 +267,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
         sqrt
     }
 
-    fn serialize(
+    pub fn serialize(
         &self,
         dst: &mut Vec<u8>,
         common_data: &CommonCircuitData<F, D>,
@@ -279,14 +279,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
         Ok(())
     }
 
-    fn deserialize(
+    pub fn deserialize(
         src: &mut Buffer,
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self, IoError> {
-        let coeffs = [
-            FqTarget::deserialize(src, common_data)?,
-            FqTarget::deserialize(src, common_data)?,
-        ];
+        let coeffs = [0; 2]
+            .iter()
+            .map(|_| FqTarget::deserialize(src, common_data))
+            .collect::<Result<Vec<_>, _>>()?
+            .try_into()
+            .unwrap();
 
         Ok(Self { coeffs })
     }

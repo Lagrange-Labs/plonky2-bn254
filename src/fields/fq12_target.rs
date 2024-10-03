@@ -225,6 +225,32 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
         let muled = self.mul(builder, x);
         Self::select(builder, &muled, &self, flag)
     }
+
+    pub fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        for fq in &self.coeffs {
+            fq.serialize(dst, common_data)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let coeffs = [0; 12]
+            .iter()
+            .map(|_| FqTarget::deserialize(src, common_data))
+            .collect::<Result<Vec<_>, _>>()?
+            .try_into()
+            .unwrap();
+
+        Ok(Self { coeffs })
+    }
 }
 
 #[derive(Debug)]
