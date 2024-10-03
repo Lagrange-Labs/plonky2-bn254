@@ -253,8 +253,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq12Target<F, D> {
     }
 }
 
-#[derive(Debug)]
-struct Fq12InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Debug, Default)]
+pub struct Fq12InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Fq12Target<F, D>,
     inv: Fq12Target<F, D>,
 }
@@ -299,11 +299,23 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         "Fq12InverseGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
-        unimplemented!()
+    fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        self.x.serialize(dst, common_data)?;
+        self.inv.serialize(dst, common_data)
     }
-    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
-        unimplemented!()
+
+    fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let x = Fq12Target::deserialize(src, common_data)?;
+        let inv = Fq12Target::deserialize(src, common_data)?;
+
+        Ok(Self { x, inv })
     }
 }
 
