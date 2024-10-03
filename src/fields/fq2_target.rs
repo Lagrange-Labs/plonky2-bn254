@@ -23,7 +23,7 @@ use crate::fields::{fq_target::FqTarget, native::from_biguint_to_fq};
 
 use super::native::sgn0_fq2;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Fq2Target<F: RichField + Extendable<D>, const D: usize> {
     pub coeffs: [FqTarget<F, D>; 2],
 }
@@ -268,8 +268,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
     }
 }
 
-#[derive(Debug)]
-struct Fq2InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
+#[derive(Debug, Default)]
+pub struct Fq2InverseGenerator<F: RichField + Extendable<D>, const D: usize> {
     x: Fq2Target<F, D>,
     inv: Fq2Target<F, D>,
 }
