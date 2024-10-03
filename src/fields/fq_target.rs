@@ -307,6 +307,26 @@ impl<F: RichField + Extendable<D>, const D: usize> FqTarget<F, D> {
             .map(|(l_t, l)| pw.set_target(l_t, F::from_canonical_u32(l)))
             .for_each(drop);
     }
+
+    pub fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        self.target.serialize(dst, common_data)
+    }
+
+    pub fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let target = NonNativeTarget::deserialize(src, common_data)?;
+
+        Ok(FqTarget {
+            target,
+            _marker: PhantomData,
+        })
+    }
 }
 
 #[derive(Debug)]
