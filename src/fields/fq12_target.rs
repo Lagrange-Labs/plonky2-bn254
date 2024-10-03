@@ -11,7 +11,7 @@ use plonky2::{
         witness::{PartitionWitness, Witness, WitnessWrite},
     },
     plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
-    util::serialization::{Buffer, IoError},
+    util::serialization::{Buffer, IoError, Read, Write},
 };
 use plonky2_ecdsa::gadgets::{
     biguint::{GeneratedValuesBigUint, WitnessBigUint},
@@ -333,7 +333,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Fq12ExpGenerator<F: RichField + Extendable<D>, const D: usize> {
     pub x: Fq12Target<F, D>,
     pub offset: Fq12Target<F, D>,
@@ -379,20 +379,33 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
     fn serialize(
         &self,
-        _dst: &mut Vec<u8>,
-        _common_data: &CommonCircuitData<F, D>,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> plonky2::util::serialization::IoResult<()> {
-        unimplemented!()
+        self.x.serialize(dst, common_data)?;
+        self.offset.serialize(dst, common_data)?;
+        self.output.serialize(dst, common_data)?;
+        dst.write_target(self.exp_val)
     }
 
     fn deserialize(
-        _src: &mut Buffer,
-        _common_data: &CommonCircuitData<F, D>,
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
     ) -> plonky2::util::serialization::IoResult<Self>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let x = Fq12Target::deserialize(src, common_data)?;
+        let offset = Fq12Target::deserialize(src, common_data)?;
+        let output = Fq12Target::deserialize(src, common_data)?;
+        let exp_val = src.read_target()?;
+
+        Ok(Self {
+            x,
+            offset,
+            output,
+            exp_val,
+        })
     }
 }
 
