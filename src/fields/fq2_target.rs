@@ -16,7 +16,7 @@ use plonky2::{
 };
 use plonky2_ecdsa::gadgets::{
     biguint::{GeneratedValuesBigUint, WitnessBigUint},
-    nonnative::CircuitBuilderNonNative,
+    nonnative::{CircuitBuilderNonNative, NonNativeTarget},
 };
 
 use crate::fields::{fq_target::FqTarget, native::from_biguint_to_fq};
@@ -266,6 +266,30 @@ impl<F: RichField + Extendable<D>, const D: usize> Fq2Target<F, D> {
 
         sqrt
     }
+
+    fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        for fq in &self.coeffs {
+            fq.serialize(dst, common_data)?;
+        }
+
+        Ok(())
+    }
+
+    fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let coeffs = [
+            FqTarget::deserialize(src, common_data)?,
+            FqTarget::deserialize(src, common_data)?,
+        ];
+
+        Ok(Self { coeffs })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -312,11 +336,23 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         "Fq2InverseGenerator".to_string()
     }
 
-    fn serialize(&self, _: &mut Vec<u8>, _: &CommonCircuitData<F, D>) -> Result<(), IoError> {
-        unimplemented!()
+    fn serialize(
+        &self,
+        dst: &mut Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<(), IoError> {
+        self.x.serialize(dst, common_data)?;
+        self.inv.serialize(dst, common_data)
     }
-    fn deserialize(_: &mut Buffer, _: &CommonCircuitData<F, D>) -> Result<Self, IoError> {
-        unimplemented!()
+
+    fn deserialize(
+        src: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Result<Self, IoError> {
+        let x = Fq2Target::deserialize(src, common_data)?;
+        let inv = Fq2Target::deserialize(src, common_data)?;
+
+        Ok(Self { x, inv })
     }
 }
 
