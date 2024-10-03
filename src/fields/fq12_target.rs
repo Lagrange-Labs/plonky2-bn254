@@ -23,7 +23,7 @@ use crate::fields::{
     native::{from_biguint_to_fq, MyFq12},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Fq12Target<F: RichField + Extendable<D>, const D: usize> {
     pub coeffs: [FqTarget<F, D>; 12],
 }
